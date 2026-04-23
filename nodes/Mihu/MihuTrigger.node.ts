@@ -14,23 +14,16 @@ export class MihuTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Triggers when a Mihu AI voice or text evaluation is completed',
-		defaults: {
-			name: 'Mihu AI Trigger',
-		},
+		defaults: { name: 'Mihu AI Trigger' },
 		inputs: [],
 		outputs: ['main'],
-		credentials: [
-			{
-				name: 'mihuApi',
-				required: true,
-			},
-		],
+		credentials: [{ name: 'mihuApi', required: true }],
 		webhooks: [
 			{
 				name: 'default',
 				httpMethod: 'POST',
 				responseMode: 'onReceived',
-				path: 'webhook',
+				path: '={{$parameter["webhookPath"]}}',
 			},
 		],
 		properties: [
@@ -53,23 +46,37 @@ export class MihuTrigger implements INodeType {
 				default: 'voice_evaluation',
 				required: true,
 			},
+			{
+				displayName: 'Webhook Path',
+				name: 'webhookPath',
+				type: 'string',
+				default: 'mihu-webhook',
+				description: 'Unique path for this webhook — change if using multiple Mihu triggers in one workflow',
+			},
 		],
 	};
 
 	webhookMethods = {
 		default: {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
+				const staticData = this.getWorkflowStaticData('node');
+				const webhookUrl = this.getNodeWebhookUrl('default') as string;
+				if (staticData.webhookUrl === webhookUrl) {
+					return true;
+				}
 				return false;
 			},
 
 			async create(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
 				const event = this.getNodeParameter('event') as string;
-				const credentials = await this.getCredentials('mihuApi');
+				const staticData = this.getWorkflowStaticData('node');
 
-				await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
+				await this.helpers.httpRequest({
 					method: 'POST',
-					url: `https://${credentials.accountDomain}.mihu.ai/api/v1/webhooks`,
+					url: event === 'voice_evaluation'
+						? 'https://integration.mihu.ai/webhook/d7c9d1df-40f4-4622-9c69-e3d3ceedcc1c'
+						: 'https://integration.mihu.ai/webhook/52418198-97b5-4d82-8a4c-7933a8083192',
 					body: {
 						targetUrl: webhookUrl,
 						event,
@@ -77,24 +84,26 @@ export class MihuTrigger implements INodeType {
 					json: true,
 				});
 
+				staticData.webhookUrl = webhookUrl;
 				return true;
 			},
 
 			async delete(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
-				const credentials = await this.getCredentials('mihuApi');
+				const staticData = this.getWorkflowStaticData('node');
 
 				try {
-					await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'DELETE',
-						url: `https://${credentials.accountDomain}.mihu.ai/api/v1/webhooks`,
-						body: {
-							targetUrl: webhookUrl,
-						},
+					await this.helpers.httpRequest({
+						method: 'POST',
+						url: 'https://integration.mihu.ai/webhook/52418198-97b5-4d82-8a4c-7933a8083192',
+						body: { targetUrl: webhookUrl },
 						json: true,
 					});
-				} catch (_) {}
+				} catch (error) {
+					// unsubscribe failed — non-critical
+				}
 
+				delete staticData.webhookUrl;
 				return true;
 			},
 		},
@@ -104,7 +113,6 @@ export class MihuTrigger implements INodeType {
 		const raw = this.getBodyData() as Record<string, any>;
 		const event = this.getNodeParameter('event') as string;
 
-		// Filter by event type
 		if (raw.event && raw.event !== event && raw.event !== 'conversation_end_report') {
 			return { noWebhookResponse: true };
 		}
@@ -139,7 +147,6 @@ export class MihuTrigger implements INodeType {
 			timestamp: data.timestamp || null,
 		};
 
-		// Dynamic contact fields
 		if (data.fields && typeof data.fields === 'object') {
 			const excludeKeys = ['account_domain', 'Authorization', 'api_key'];
 			for (const key of Object.keys(data.fields)) {

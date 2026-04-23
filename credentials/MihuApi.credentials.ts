@@ -8,7 +8,8 @@ import {
 export class MihuApi implements ICredentialType {
 	name = 'mihuApi';
 	displayName = 'Mihu AI API';
-	documentationUrl = 'https://mihu.ai/docs';
+	documentationUrl = 'https://developers.mihu.ai';
+	icon = 'file:../nodes/Mihu/mihu.svg' as const;
 	properties: INodeProperties[] = [
 		{
 			displayName: 'API Key',
@@ -24,8 +25,8 @@ export class MihuApi implements ICredentialType {
 			type: 'string',
 			default: '',
 			required: true,
-			placeholder: 'flexicar',
-			description: 'Your Mihu AI subdomain (e.g. flexicar, minders)',
+			placeholder: 'acme',
+			description: 'Your Mihu AI subdomain (e.g. acme for acme.mihu.ai)',
 		},
 	];
 
