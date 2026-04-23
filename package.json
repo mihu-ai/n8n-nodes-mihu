@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-mihu",
-	"version": "0.1.2",
+	"version": "0.1.7",
 	"description": "n8n community node for Mihu AI - AI-powered contact center and voice agent platform",
 	"license": "MIT",
 	"homepage": "https://mihu.ai",
@@ -26,6 +26,7 @@
 		"dev": "n8n-node dev",
 		"lint": "n8n-node lint",
 		"lint:fix": "n8n-node lint --fix",
+		"test": "n8n-node test",
 		"release": "n8n-node release",
 		"prepublishOnly": "n8n-node prerelease"
 	},
@@ -44,7 +45,7 @@
 		]
 	},
 	"devDependencies": {
-		"@n8n/node-cli": "*",
+		"@n8n/node-cli": "^0.23.1",
 		"eslint": "9.39.4",
 		"prettier": "3.8.1",
 		"release-it": "19.2.4",

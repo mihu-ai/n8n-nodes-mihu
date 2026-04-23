@@ -3,6 +3,10 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	IDataObject,
+	NodeApiError,
+	NodeOperationError,
+	JsonObject,
 } from 'n8n-workflow';
 
 export class Mihu implements INodeType {
@@ -14,6 +18,7 @@ export class Mihu implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
 		description: 'Interact with Mihu AI contact center and voice agent platform',
+		usableAsTool: true,
 		defaults: { name: 'Mihu AI' },
 		inputs: ['main'],
 		outputs: ['main'],
@@ -35,9 +40,6 @@ export class Mihu implements INodeType {
 				],
 				default: 'contact',
 			},
-
-			// ─── OPERATIONS ─────────────────────────────────────────
-
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -59,7 +61,7 @@ export class Mihu implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['call'] } },
 				options: [
-					{ name: 'Create Call', value: 'create', action: 'Initiate an outbound call' },
+					{ name: 'Create call', value: 'create', action: 'Create a call' },
 				],
 				default: 'create',
 			},
@@ -70,7 +72,7 @@ export class Mihu implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['whatsapp'] } },
 				options: [
-					{ name: 'Send Template', value: 'sendTemplate', action: 'Send a WhatsApp template message' },
+					{ name: 'Send template', value: 'sendTemplate', action: 'Send a WhatsApp template message' },
 				],
 				default: 'sendTemplate',
 			},
@@ -81,14 +83,14 @@ export class Mihu implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['dataset'] } },
 				options: [
-					{ name: 'Create Record', value: 'createRecord', action: 'Add a new record to a dataset' },
-					{ name: 'Delete Record', value: 'deleteRecord', action: 'Delete a record from a dataset' },
+					{ name: 'Assign to agent', value: 'assignToAgent', action: 'Link a dataset to an AI agent' },
+					{ name: 'Create record', value: 'createRecord', action: 'Add a new record to a dataset' },
+					{ name: 'Delete record', value: 'deleteRecord', action: 'Delete a record from a dataset' },
 					{ name: 'Find', value: 'find', action: 'Find a dataset by ID' },
-					{ name: 'List Records', value: 'listRecords', action: 'Get all records from a dataset' },
-					{ name: 'Send Text Prompt', value: 'sendTextPrompt', action: 'Import plain text as training data' },
-					{ name: 'Assign to Agent', value: 'assignToAgent', action: 'Link a dataset to an AI agent' },
+					{ name: 'List records', value: 'listRecords', action: 'Get all records from a dataset' },
+					{ name: 'Send text prompt', value: 'sendTextPrompt', action: 'Import plain text as training data' },
 					{ name: 'Sync', value: 'sync', action: 'Sync and refresh a dataset' },
-					{ name: 'Update Record', value: 'updateRecord', action: 'Update an existing record' },
+					{ name: 'Update record', value: 'updateRecord', action: 'Update an existing record' },
 				],
 				default: 'createRecord',
 			},
@@ -101,9 +103,9 @@ export class Mihu implements INodeType {
 				options: [
 					{ name: 'Create', value: 'create', action: 'Create an appointment' },
 					{ name: 'Delete', value: 'delete', action: 'Delete an appointment' },
-					{ name: 'Find All', value: 'findAll', action: 'Get all appointments' },
+					{ name: 'Find all', value: 'findAll', action: 'Get all appointments' },
 					{ name: 'Update', value: 'update', action: 'Update an appointment' },
-					{ name: 'Update Status', value: 'updateStatus', action: 'Update appointment status' },
+					{ name: 'Update status', value: 'updateStatus', action: 'Update appointment status' },
 				],
 				default: 'create',
 			},
@@ -126,17 +128,16 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['listing'] } },
 				options: [
 					{ name: 'Create', value: 'create', action: 'Create a listing' },
-					{ name: 'Delete Contact', value: 'deleteContact', action: 'Remove a contact from a listing' },
-					{ name: 'Send Contacts', value: 'sendContacts', action: 'Add contacts to a listing' },
+					{ name: 'Delete contact', value: 'deleteContact', action: 'Remove a contact from a listing' },
+					{ name: 'Send contacts', value: 'sendContacts', action: 'Add contacts to a listing' },
 				],
 				default: 'create',
 			},
 
-			// ─── CONTACT FIELDS ──────────────────────────────────────
-
+			// ── CONTACT FIELDS ──────────────────────────────────────
 			{
 				displayName: 'Phone Number',
-				name: 'phone_number',
+				name: 'phoneNumber',
 				type: 'string',
 				default: '',
 				required: true,
@@ -166,7 +167,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Number Type',
-				name: 'number_type',
+				name: 'numberType',
 				type: 'options',
 				options: [
 					{ name: 'Mobile', value: 'mobile' },
@@ -177,7 +178,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Country Code',
-				name: 'country_code',
+				name: 'countryCode',
 				type: 'string',
 				default: '',
 				placeholder: 'US',
@@ -193,7 +194,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Primary Language',
-				name: 'primary_language',
+				name: 'primaryLanguage',
 				type: 'string',
 				default: '',
 				placeholder: 'en',
@@ -212,18 +213,17 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Contact UUID',
-				name: 'contact_uuid',
+				name: 'contactUuid',
 				type: 'string',
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['contact'], operation: ['find', 'update', 'delete'] } },
 			},
 
-			// ─── CALL FIELDS ─────────────────────────────────────────
-
+			// ── CALL FIELDS ──────────────────────────────────────────
 			{
 				displayName: 'Agent ID',
-				name: 'agent_id',
+				name: 'agentId',
 				type: 'string',
 				required: true,
 				default: '',
@@ -231,7 +231,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Phone Number',
-				name: 'phone_number',
+				name: 'phoneNumber',
 				type: 'string',
 				required: true,
 				default: '',
@@ -246,7 +246,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Custom Prompt',
-				name: 'custom_prompt',
+				name: 'customPrompt',
 				type: 'string',
 				typeOptions: { rows: 4 },
 				default: '',
@@ -254,24 +254,23 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Overwrite Prompt',
-				name: 'overwrite_prompt',
+				name: 'overwritePrompt',
 				type: 'boolean',
 				default: false,
 				displayOptions: { show: { resource: ['call'], operation: ['create'] } },
 			},
 			{
 				displayName: 'Start Message',
-				name: 'start_message',
+				name: 'startMessage',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['call'], operation: ['create'] } },
 			},
 
-			// ─── WHATSAPP FIELDS ─────────────────────────────────────
-
+			// ── WHATSAPP FIELDS ──────────────────────────────────────
 			{
 				displayName: 'Agent ID',
-				name: 'agent_id',
+				name: 'agentId',
 				type: 'string',
 				required: true,
 				default: '',
@@ -279,7 +278,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Template ID',
-				name: 'template_id',
+				name: 'templateId',
 				type: 'string',
 				required: true,
 				default: '',
@@ -287,7 +286,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Phone Number',
-				name: 'phone_number',
+				name: 'phoneNumber',
 				type: 'string',
 				required: true,
 				default: '',
@@ -295,28 +294,28 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Parameter 1',
-				name: 'parameter_1',
+				name: 'parameter1',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['whatsapp'], operation: ['sendTemplate'] } },
 			},
 			{
 				displayName: 'Parameter 2',
-				name: 'parameter_2',
+				name: 'parameter2',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['whatsapp'], operation: ['sendTemplate'] } },
 			},
 			{
 				displayName: 'Parameter 3',
-				name: 'parameter_3',
+				name: 'parameter3',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['whatsapp'], operation: ['sendTemplate'] } },
 			},
 			{
 				displayName: 'Header Type',
-				name: 'header_type',
+				name: 'headerType',
 				type: 'options',
 				options: [
 					{ name: 'Image', value: 'image' },
@@ -328,17 +327,16 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Header URL',
-				name: 'header_url',
+				name: 'headerUrl',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['whatsapp'], operation: ['sendTemplate'] } },
 			},
 
-			// ─── DATASET FIELDS ──────────────────────────────────────
-
+			// ── DATASET FIELDS ───────────────────────────────────────
 			{
 				displayName: 'Dataset UUID',
-				name: 'dataset_uuid',
+				name: 'datasetUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -351,7 +349,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Record ID',
-				name: 'record_id',
+				name: 'recordId',
 				type: 'string',
 				required: true,
 				default: '',
@@ -359,16 +357,15 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Record Data (JSON)',
-				name: 'record_data',
-				type: 'string',
+				name: 'recordData',
+				type: 'json',
 				required: true,
 				default: '{}',
-				placeholder: '{"Location": "New York", "Price": "1999"}',
 				displayOptions: { show: { resource: ['dataset'], operation: ['createRecord', 'updateRecord'] } },
 			},
 			{
 				displayName: 'Agent UUID',
-				name: 'agent_uuid',
+				name: 'agentUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -399,11 +396,10 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['dataset'], operation: ['sendTextPrompt'] } },
 			},
 
-			// ─── APPOINTMENT FIELDS ──────────────────────────────────
-
+			// ── APPOINTMENT FIELDS ───────────────────────────────────
 			{
 				displayName: 'Appointment UUID',
-				name: 'appointment_uuid',
+				name: 'appointmentUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -411,7 +407,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Schedule UUID',
-				name: 'schedule_uuid',
+				name: 'scheduleUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -427,7 +423,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Start Time',
-				name: 'start_time',
+				name: 'startTime',
 				type: 'string',
 				required: true,
 				default: '',
@@ -436,7 +432,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'End Time',
-				name: 'end_time',
+				name: 'endTime',
 				type: 'string',
 				required: true,
 				default: '',
@@ -457,7 +453,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Contact UUID',
-				name: 'contact_uuid',
+				name: 'contactUuid',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['appointment'], operation: ['create'] } },
@@ -470,8 +466,7 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['appointment'], operation: ['create', 'update'] } },
 			},
 
-			// ─── TASK FIELDS ─────────────────────────────────────────
-
+			// ── TASK FIELDS ──────────────────────────────────────────
 			{
 				displayName: 'Title',
 				name: 'title',
@@ -494,7 +489,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Phone Number',
-				name: 'phone_number',
+				name: 'phoneNumber',
 				type: 'string',
 				required: true,
 				default: '',
@@ -502,7 +497,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Agent UUID',
-				name: 'agent_uuid',
+				name: 'agentUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -510,7 +505,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Scheduled At',
-				name: 'scheduled_at',
+				name: 'scheduledAt',
 				type: 'string',
 				default: '',
 				placeholder: '2026-03-01T14:00:00.000Z',
@@ -518,17 +513,16 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Auto Queue',
-				name: 'auto_queue',
+				name: 'autoQueue',
 				type: 'boolean',
 				default: false,
 				displayOptions: { show: { resource: ['task'], operation: ['create'] } },
 			},
 
-			// ─── LISTING FIELDS ──────────────────────────────────────
-
+			// ── LISTING FIELDS ───────────────────────────────────────
 			{
 				displayName: 'Listing UUID',
-				name: 'listing_uuid',
+				name: 'listingUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -544,7 +538,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Campaign Type',
-				name: 'campaign_type',
+				name: 'campaignType',
 				type: 'options',
 				required: true,
 				options: [
@@ -556,7 +550,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Agent UUID',
-				name: 'agent_uuid',
+				name: 'agentUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -571,7 +565,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Start Date',
-				name: 'start_date',
+				name: 'startDate',
 				type: 'string',
 				default: '',
 				placeholder: '2026-03-01',
@@ -579,7 +573,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'End Date',
-				name: 'end_date',
+				name: 'endDate',
 				type: 'string',
 				default: '',
 				placeholder: '2026-03-31',
@@ -587,28 +581,28 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Auto Start',
-				name: 'auto_start',
+				name: 'autoStart',
 				type: 'boolean',
 				default: false,
 				displayOptions: { show: { resource: ['listing'], operation: ['create'] } },
 			},
 			{
 				displayName: 'Max Calls Per Day',
-				name: 'max_calls_per_day',
+				name: 'maxCallsPerDay',
 				type: 'number',
 				default: 3,
 				displayOptions: { show: { resource: ['listing'], operation: ['create'] } },
 			},
 			{
 				displayName: 'Retry Interval (Minutes)',
-				name: 'retry_interval_minutes',
+				name: 'retryIntervalMinutes',
 				type: 'number',
 				default: 120,
 				displayOptions: { show: { resource: ['listing'], operation: ['create'] } },
 			},
 			{
 				displayName: 'Contact Phone Number',
-				name: 'contact_phone',
+				name: 'contactPhone',
 				type: 'string',
 				required: true,
 				default: '',
@@ -616,28 +610,28 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Contact Name',
-				name: 'contact_name',
+				name: 'contactName',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['listing'], operation: ['sendContacts'] } },
 			},
 			{
 				displayName: 'Contact Surname',
-				name: 'contact_surname',
+				name: 'contactSurname',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['listing'], operation: ['sendContacts'] } },
 			},
 			{
 				displayName: 'Contact Email',
-				name: 'contact_email',
+				name: 'contactEmail',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['listing'], operation: ['sendContacts'] } },
 			},
 			{
 				displayName: 'Contact UUID',
-				name: 'contact_uuid',
+				name: 'contactUuid',
 				type: 'string',
 				required: true,
 				default: '',
@@ -653,287 +647,298 @@ export class Mihu implements INodeType {
 		const baseURL = `https://${credentials.accountDomain}.mihu.ai/api/v1`;
 
 		for (let i = 0; i < items.length; i++) {
-			const resource = this.getNodeParameter('resource', i) as string;
-			const operation = this.getNodeParameter('operation', i) as string;
-			let responseData: any;
+			try {
+				const resource = this.getNodeParameter('resource', i) as string;
+				const operation = this.getNodeParameter('operation', i) as string;
+				let responseData: IDataObject = {};
 
-			// ── CONTACT ──────────────────────────────────────────────
-			if (resource === 'contact') {
-				if (operation === 'create') {
-					const body: Record<string, any> = {
-						phone_number: this.getNodeParameter('phone_number', i),
-						name: this.getNodeParameter('name', i),
-						surname: this.getNodeParameter('surname', i),
-						email: this.getNodeParameter('email', i),
-						number_type: this.getNodeParameter('number_type', i),
-						country_code: this.getNodeParameter('country_code', i),
-						timezone: this.getNodeParameter('timezone', i),
-						primary_language: this.getNodeParameter('primary_language', i),
-						status: this.getNodeParameter('status', i) || 'Active',
-					};
-					// Remove empty values
-					Object.keys(body).forEach(k => { if (!body[k]) delete body[k]; });
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/contacts`, body, json: true,
-					});
-				} else if (operation === 'find') {
-					const uuid = this.getNodeParameter('contact_uuid', i) as string;
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'GET', url: `${baseURL}/contacts/${uuid}`, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'update') {
-					const uuid = this.getNodeParameter('contact_uuid', i) as string;
-					const body: Record<string, any> = {};
-					const fields = ['name','surname','email','phone_number','number_type','country_code','timezone','primary_language','status'];
-					for (const f of fields) {
-						try { const v = this.getNodeParameter(f, i); if (v) body[f] = v; } catch (_) {}
-					}
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'PUT', url: `${baseURL}/contacts/${uuid}`, body, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'delete') {
-					const uuid = this.getNodeParameter('contact_uuid', i) as string;
-					await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'DELETE', url: `${baseURL}/contacts/${uuid}`, json: true,
-					});
-					responseData = { deleted: true, contact_uuid: uuid };
-				}
-			}
-
-			// ── CALL ─────────────────────────────────────────────────
-			else if (resource === 'call') {
-				if (operation === 'create') {
-					const body: Record<string, any> = {
-						agentId: this.getNodeParameter('agent_id', i),
-						participant: { number: this.getNodeParameter('phone_number', i) },
-					};
-					const about = this.getNodeParameter('about', i) as string;
-					if (about) body.participant.about = about;
-					const customPrompt = this.getNodeParameter('custom_prompt', i) as string;
-					if (customPrompt) {
-						body.prompt = {
-							overwrite: this.getNodeParameter('overwrite_prompt', i),
-							content: customPrompt,
+				if (resource === 'contact') {
+					if (operation === 'create') {
+						const body: IDataObject = {
+							phone_number: this.getNodeParameter('phoneNumber', i),
+							name: this.getNodeParameter('name', i, ''),
+							surname: this.getNodeParameter('surname', i, ''),
+							email: this.getNodeParameter('email', i, ''),
+							number_type: this.getNodeParameter('numberType', i, ''),
+							country_code: this.getNodeParameter('countryCode', i, ''),
+							timezone: this.getNodeParameter('timezone', i, ''),
+							primary_language: this.getNodeParameter('primaryLanguage', i, ''),
+							status: this.getNodeParameter('status', i, 'Active'),
 						};
+						Object.keys(body).forEach(k => { if (!body[k]) delete body[k]; });
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/contacts`, body, json: true,
+						}) as IDataObject;
+					} else if (operation === 'find') {
+						const uuid = this.getNodeParameter('contactUuid', i) as string;
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'GET', url: `${baseURL}/contacts/${uuid}`, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'update') {
+						const uuid = this.getNodeParameter('contactUuid', i) as string;
+						const body: IDataObject = {};
+						const fields: Array<[string, string]> = [
+							['name', 'name'], ['surname', 'surname'], ['email', 'email'],
+							['phoneNumber', 'phone_number'], ['numberType', 'number_type'],
+							['countryCode', 'country_code'], ['timezone', 'timezone'],
+							['primaryLanguage', 'primary_language'], ['status', 'status'],
+						];
+						for (const [param, key] of fields) {
+							const v = this.getNodeParameter(param, i, '');
+							if (v) body[key] = v;
+						}
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'PUT', url: `${baseURL}/contacts/${uuid}`, body, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'delete') {
+						const uuid = this.getNodeParameter('contactUuid', i) as string;
+						await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'DELETE', url: `${baseURL}/contacts/${uuid}`, json: true,
+						});
+						responseData = { deleted: true, contact_uuid: uuid };
 					}
-					const startMessage = this.getNodeParameter('start_message', i) as string;
-					if (startMessage) body.message = { start: startMessage };
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/call`, body, json: true,
-					});
-				}
-			}
-
-			// ── WHATSAPP ─────────────────────────────────────────────
-			else if (resource === 'whatsapp') {
-				if (operation === 'sendTemplate') {
-					const body: Record<string, any> = {
-						agentId: this.getNodeParameter('agent_id', i),
-						templateId: this.getNodeParameter('template_id', i),
-						phoneNumber: this.getNodeParameter('phone_number', i),
-					};
-					const parameters: Record<string, string> = {};
-					for (let p = 1; p <= 3; p++) {
-						const val = this.getNodeParameter(`parameter_${p}`, i) as string;
-						if (val) parameters[`field${p}`] = val;
-					}
-					if (Object.keys(parameters).length > 0) body.parameters = parameters;
-					const headerUrl = this.getNodeParameter('header_url', i) as string;
-					if (headerUrl) {
-						body.header = {
-							type: this.getNodeParameter('header_type', i),
-							url: headerUrl,
+				} else if (resource === 'call') {
+					if (operation === 'create') {
+						const participant: IDataObject = { number: this.getNodeParameter('phoneNumber', i) };
+						const about = this.getNodeParameter('about', i, '') as string;
+						if (about) participant.about = about;
+						const body: IDataObject = {
+							agentId: this.getNodeParameter('agentId', i),
+							participant,
 						};
+						const customPrompt = this.getNodeParameter('customPrompt', i, '') as string;
+						if (customPrompt) {
+							body.prompt = {
+								overwrite: this.getNodeParameter('overwritePrompt', i, false),
+								content: customPrompt,
+							};
+						}
+						const startMessage = this.getNodeParameter('startMessage', i, '') as string;
+						if (startMessage) body.message = { start: startMessage };
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/call`, body, json: true,
+						}) as IDataObject;
 					}
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/whatsapp/template`, body, json: true,
-					});
-				}
-			}
-
-			// ── DATASET ──────────────────────────────────────────────
-			else if (resource === 'dataset') {
-				if (operation === 'sendTextPrompt') {
-					const body: Record<string, any> = {
-						name: this.getNodeParameter('name', i),
-						data: this.getNodeParameter('data', i),
-					};
-					const desc = this.getNodeParameter('description', i) as string;
-					if (desc) body.description = desc;
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/data/import/copypaste`, body, json: true,
-					});
-				} else if (operation === 'createRecord') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					const recordData = JSON.parse(this.getNodeParameter('record_data', i) as string);
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/data/${datasetUuid}/records`, body: { record: recordData }, json: true,
-					});
-				} else if (operation === 'updateRecord') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					const recordId = this.getNodeParameter('record_id', i) as string;
-					const recordData = JSON.parse(this.getNodeParameter('record_data', i) as string);
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'PUT', url: `${baseURL}/data/${datasetUuid}/records/${recordId}`, body: { record: recordData }, json: true,
-					});
-				} else if (operation === 'deleteRecord') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					const recordId = this.getNodeParameter('record_id', i) as string;
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'DELETE', url: `${baseURL}/data/${datasetUuid}/records/${recordId}`, json: true,
-					});
-				} else if (operation === 'sync') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/data/${datasetUuid}/sync`, json: true,
-					});
-				} else if (operation === 'assignToAgent') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					const agentUuid = this.getNodeParameter('agent_uuid', i) as string;
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/data/${datasetUuid}/assign`, body: { agent_uuid: agentUuid }, json: true,
-					});
-				} else if (operation === 'find') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'GET', url: `${baseURL}/data/${datasetUuid}`, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'listRecords') {
-					const datasetUuid = this.getNodeParameter('dataset_uuid', i) as string;
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'GET', url: `${baseURL}/data/${datasetUuid}/records?page=1&per_page=100`, json: true,
-					});
-					responseData = { records: res.data?.data || [] };
-				}
-			}
-
-			// ── APPOINTMENT ──────────────────────────────────────────
-			else if (resource === 'appointment') {
-				if (operation === 'findAll') {
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'GET', url: `${baseURL}/appointments`, json: true,
-					});
-					responseData = { appointments: Array.isArray(res.data) ? res.data : [] };
-				} else if (operation === 'create') {
-					const body: Record<string, any> = {
-						schedule_uuid: this.getNodeParameter('schedule_uuid', i),
-						title: this.getNodeParameter('title', i),
-						start_time: this.getNodeParameter('start_time', i),
-						end_time: this.getNodeParameter('end_time', i),
-					};
-					const contactUuid = this.getNodeParameter('contact_uuid', i) as string;
-					if (contactUuid) body.contact_uuid = contactUuid;
-					const status = this.getNodeParameter('status', i) as string;
-					if (status) body.status = status;
-					const notes = this.getNodeParameter('notes', i) as string;
-					if (notes) body.notes = notes;
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/appointments`, body, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'update') {
-					const uuid = this.getNodeParameter('appointment_uuid', i) as string;
-					const body: Record<string, any> = {};
-					const fields = ['title','start_time','end_time','status','notes'];
-					for (const f of fields) {
-						try { const v = this.getNodeParameter(f, i); if (v) body[f] = v; } catch (_) {}
+				} else if (resource === 'whatsapp') {
+					if (operation === 'sendTemplate') {
+						const body: IDataObject = {
+							agentId: this.getNodeParameter('agentId', i),
+							templateId: this.getNodeParameter('templateId', i),
+							phoneNumber: this.getNodeParameter('phoneNumber', i),
+						};
+						const parameters: IDataObject = {};
+						for (let p = 1; p <= 3; p++) {
+							const val = this.getNodeParameter(`parameter${p}`, i, '') as string;
+							if (val) parameters[`field${p}`] = val;
+						}
+						if (Object.keys(parameters).length > 0) body.parameters = parameters;
+						const headerUrl = this.getNodeParameter('headerUrl', i, '') as string;
+						if (headerUrl) {
+							body.header = {
+								type: this.getNodeParameter('headerType', i),
+								url: headerUrl,
+							};
+						}
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/whatsapp/template`, body, json: true,
+						}) as IDataObject;
 					}
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'PUT', url: `${baseURL}/appointments/${uuid}`, body, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'updateStatus') {
-					const uuid = this.getNodeParameter('appointment_uuid', i) as string;
-					const status = this.getNodeParameter('status', i) as string;
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/appointments/${uuid}/status`, body: { status }, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'delete') {
-					const uuid = this.getNodeParameter('appointment_uuid', i) as string;
-					await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'DELETE', url: `${baseURL}/appointments/${uuid}`, json: true,
-					});
-					responseData = { deleted: true, appointment_uuid: uuid };
+				} else if (resource === 'dataset') {
+					if (operation === 'sendTextPrompt') {
+						const body: IDataObject = {
+							name: this.getNodeParameter('name', i),
+							data: this.getNodeParameter('data', i),
+						};
+						const desc = this.getNodeParameter('description', i, '') as string;
+						if (desc) body.description = desc;
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/data/import/copypaste`, body, json: true,
+						}) as IDataObject;
+					} else if (operation === 'createRecord') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						let recordData: IDataObject;
+						try {
+							const raw = this.getNodeParameter('recordData', i) as string;
+							recordData = typeof raw === 'string' ? JSON.parse(raw) as IDataObject : raw as IDataObject;
+						} catch (_e) {
+							throw new NodeOperationError(this.getNode(), 'Record Data must be valid JSON. Example: {"Location": "New York", "Price": "1999"}', { itemIndex: i });
+						}
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/data/${datasetUuid}/records`, body: { record: recordData }, json: true,
+						}) as IDataObject;
+					} else if (operation === 'updateRecord') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						const recordId = this.getNodeParameter('recordId', i) as string;
+						let recordData: IDataObject;
+						try {
+							const raw = this.getNodeParameter('recordData', i) as string;
+							recordData = typeof raw === 'string' ? JSON.parse(raw) as IDataObject : raw as IDataObject;
+						} catch (_e) {
+							throw new NodeOperationError(this.getNode(), 'Record Data must be valid JSON. Example: {"Price": "2499"}', { itemIndex: i });
+						}
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'PUT', url: `${baseURL}/data/${datasetUuid}/records/${recordId}`, body: { record: recordData }, json: true,
+						}) as IDataObject;
+					} else if (operation === 'deleteRecord') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						const recordId = this.getNodeParameter('recordId', i) as string;
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'DELETE', url: `${baseURL}/data/${datasetUuid}/records/${recordId}`, json: true,
+						}) as IDataObject;
+					} else if (operation === 'sync') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/data/${datasetUuid}/sync`, json: true,
+						}) as IDataObject;
+					} else if (operation === 'assignToAgent') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						const agentUuid = this.getNodeParameter('agentUuid', i) as string;
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/data/${datasetUuid}/assign`, body: { agent_uuid: agentUuid }, json: true,
+						}) as IDataObject;
+					} else if (operation === 'find') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'GET', url: `${baseURL}/data/${datasetUuid}`, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'listRecords') {
+						const datasetUuid = this.getNodeParameter('datasetUuid', i) as string;
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'GET', url: `${baseURL}/data/${datasetUuid}/records?page=1&per_page=100`, json: true,
+						}) as IDataObject;
+						const data = res.data as IDataObject;
+						responseData = { records: (data?.data as IDataObject[]) || [] };
+					}
+				} else if (resource === 'appointment') {
+					if (operation === 'findAll') {
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'GET', url: `${baseURL}/appointments`, json: true,
+						}) as IDataObject;
+						responseData = { appointments: Array.isArray(res.data) ? res.data : [] };
+					} else if (operation === 'create') {
+						const body: IDataObject = {
+							schedule_uuid: this.getNodeParameter('scheduleUuid', i),
+							title: this.getNodeParameter('title', i),
+							start_time: this.getNodeParameter('startTime', i),
+							end_time: this.getNodeParameter('endTime', i),
+						};
+						const contactUuid = this.getNodeParameter('contactUuid', i, '') as string;
+						if (contactUuid) body.contact_uuid = contactUuid;
+						const status = this.getNodeParameter('status', i, '') as string;
+						if (status) body.status = status;
+						const notes = this.getNodeParameter('notes', i, '') as string;
+						if (notes) body.notes = notes;
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/appointments`, body, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'update') {
+						const uuid = this.getNodeParameter('appointmentUuid', i) as string;
+						const body: IDataObject = {};
+						const fields: Array<[string, string]> = [
+							['title', 'title'], ['startTime', 'start_time'],
+							['endTime', 'end_time'], ['status', 'status'], ['notes', 'notes'],
+						];
+						for (const [param, key] of fields) {
+							const v = this.getNodeParameter(param, i, '');
+							if (v) body[key] = v;
+						}
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'PUT', url: `${baseURL}/appointments/${uuid}`, body, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'updateStatus') {
+						const uuid = this.getNodeParameter('appointmentUuid', i) as string;
+						const status = this.getNodeParameter('status', i) as string;
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/appointments/${uuid}/status`, body: { status }, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'delete') {
+						const uuid = this.getNodeParameter('appointmentUuid', i) as string;
+						await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'DELETE', url: `${baseURL}/appointments/${uuid}`, json: true,
+						});
+						responseData = { deleted: true, appointment_uuid: uuid };
+					}
+				} else if (resource === 'task') {
+					if (operation === 'create') {
+						const body: IDataObject = {
+							title: this.getNodeParameter('title', i),
+							type: this.getNodeParameter('type', i),
+							contact: { phone_number: this.getNodeParameter('phoneNumber', i) },
+							agent_uuid: this.getNodeParameter('agentUuid', i),
+						};
+						const scheduledAt = this.getNodeParameter('scheduledAt', i, '') as string;
+						if (scheduledAt) body.scheduled_at = scheduledAt;
+						const autoQueue = this.getNodeParameter('autoQueue', i, false) as boolean;
+						if (autoQueue) body.auto_queue = autoQueue;
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/tasks`, body, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					}
+				} else if (resource === 'listing') {
+					if (operation === 'create') {
+						const body: IDataObject = {
+							name: this.getNodeParameter('name', i),
+							campaign_type: this.getNodeParameter('campaignType', i),
+							agent_uuid: this.getNodeParameter('agentUuid', i),
+							contacts: [],
+						};
+						const desc = this.getNodeParameter('description', i, '') as string;
+						if (desc) body.description = desc;
+						const startDate = this.getNodeParameter('startDate', i, '') as string;
+						if (startDate) body.start_date = startDate;
+						const endDate = this.getNodeParameter('endDate', i, '') as string;
+						if (endDate) body.end_date = endDate;
+						const autoStart = this.getNodeParameter('autoStart', i, false) as boolean;
+						if (autoStart) body.auto_start = autoStart;
+						body.rule = {
+							type: body.campaign_type,
+							max_calls_per_day: this.getNodeParameter('maxCallsPerDay', i, 3),
+							retry_interval_minutes: this.getNodeParameter('retryIntervalMinutes', i, 120),
+						};
+						const res = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/listings`, body, json: true,
+						}) as IDataObject;
+						responseData = (res.data as IDataObject) || res;
+					} else if (operation === 'sendContacts') {
+						const listingUuid = this.getNodeParameter('listingUuid', i) as string;
+						const contact: IDataObject = {
+							phone_number: this.getNodeParameter('contactPhone', i),
+						};
+						const name = this.getNodeParameter('contactName', i, '') as string;
+						if (name) contact.name = name;
+						const surname = this.getNodeParameter('contactSurname', i, '') as string;
+						if (surname) contact.surname = surname;
+						const email = this.getNodeParameter('contactEmail', i, '') as string;
+						if (email) contact.email = email;
+						responseData = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'POST', url: `${baseURL}/listings/${listingUuid}/contacts`, body: { contacts: [contact] }, json: true,
+						}) as IDataObject;
+					} else if (operation === 'deleteContact') {
+						const listingUuid = this.getNodeParameter('listingUuid', i) as string;
+						const contactUuid = this.getNodeParameter('contactUuid', i) as string;
+						await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+							method: 'DELETE', url: `${baseURL}/listings/${listingUuid}/contacts/${contactUuid}`, json: true,
+						});
+						responseData = { deleted: true, listing_uuid: listingUuid, contact_uuid: contactUuid };
+					}
 				}
-			}
 
-			// ── TASK ─────────────────────────────────────────────────
-			else if (resource === 'task') {
-				if (operation === 'create') {
-					const body: Record<string, any> = {
-						title: this.getNodeParameter('title', i),
-						type: this.getNodeParameter('type', i),
-						contact: { phone_number: this.getNodeParameter('phone_number', i) },
-						agent_uuid: this.getNodeParameter('agent_uuid', i),
-					};
-					const scheduledAt = this.getNodeParameter('scheduled_at', i) as string;
-					if (scheduledAt) body.scheduled_at = scheduledAt;
-					const autoQueue = this.getNodeParameter('auto_queue', i) as boolean;
-					if (autoQueue) body.auto_queue = autoQueue;
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/tasks`, body, json: true,
-					});
-					responseData = res.data || res;
+				returnData.push({ json: responseData, pairedItem: { item: i } });
+
+			} catch (error) {
+				if (this.continueOnFail()) {
+					returnData.push({ json: { error: (error as Error).message }, pairedItem: { item: i } });
+					continue;
 				}
+				throw new NodeApiError(this.getNode(), error as JsonObject);
 			}
-
-			// ── LISTING ──────────────────────────────────────────────
-			else if (resource === 'listing') {
-				if (operation === 'create') {
-					const body: Record<string, any> = {
-						name: this.getNodeParameter('name', i),
-						campaign_type: this.getNodeParameter('campaign_type', i),
-						agent_uuid: this.getNodeParameter('agent_uuid', i),
-						contacts: [],
-					};
-					const desc = this.getNodeParameter('description', i) as string;
-					if (desc) body.description = desc;
-					const startDate = this.getNodeParameter('start_date', i) as string;
-					if (startDate) body.start_date = startDate;
-					const endDate = this.getNodeParameter('end_date', i) as string;
-					if (endDate) body.end_date = endDate;
-					const autoStart = this.getNodeParameter('auto_start', i) as boolean;
-					if (autoStart) body.auto_start = autoStart;
-					const maxCalls = this.getNodeParameter('max_calls_per_day', i) as number;
-					const retryInterval = this.getNodeParameter('retry_interval_minutes', i) as number;
-					body.rule = {
-						type: body.campaign_type,
-						max_calls_per_day: maxCalls,
-						retry_interval_minutes: retryInterval,
-					};
-					const res: any = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/listings`, body, json: true,
-					});
-					responseData = res.data || res;
-				} else if (operation === 'sendContacts') {
-					const listingUuid = this.getNodeParameter('listing_uuid', i) as string;
-					const contact: Record<string, any> = {
-						phone_number: this.getNodeParameter('contact_phone', i),
-					};
-					const name = this.getNodeParameter('contact_name', i) as string;
-					if (name) contact.name = name;
-					const surname = this.getNodeParameter('contact_surname', i) as string;
-					if (surname) contact.surname = surname;
-					const email = this.getNodeParameter('contact_email', i) as string;
-					if (email) contact.email = email;
-					responseData = await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'POST', url: `${baseURL}/listings/${listingUuid}/contacts`, body: { contacts: [contact] }, json: true,
-					});
-				} else if (operation === 'deleteContact') {
-					const listingUuid = this.getNodeParameter('listing_uuid', i) as string;
-					const contactUuid = this.getNodeParameter('contact_uuid', i) as string;
-					await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'DELETE', url: `${baseURL}/listings/${listingUuid}/contacts/${contactUuid}`, json: true,
-					});
-					responseData = { deleted: true, listing_uuid: listingUuid, contact_uuid: contactUuid };
-				}
-			}
-
-			returnData.push({ json: responseData ?? {} });
 		}
 
 		return [returnData];

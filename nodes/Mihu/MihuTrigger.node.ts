@@ -4,6 +4,7 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
+	IDataObject,
 } from 'n8n-workflow';
 
 export class MihuTrigger implements INodeType {
@@ -14,23 +15,17 @@ export class MihuTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Triggers when a Mihu AI voice or text evaluation is completed',
-		defaults: {
-			name: 'Mihu AI Trigger',
-		},
+		usableAsTool: true,
+		defaults: { name: 'Mihu AI Trigger' },
 		inputs: [],
 		outputs: ['main'],
-		credentials: [
-			{
-				name: 'mihuApi',
-				required: true,
-			},
-		],
+		credentials: [{ name: 'mihuApi', required: true }],
 		webhooks: [
 			{
 				name: 'default',
 				httpMethod: 'POST',
 				responseMode: 'onReceived',
-				path: 'webhook',
+				path: '={{$parameter["webhookPath"]}}',
 			},
 		],
 		properties: [
@@ -53,23 +48,37 @@ export class MihuTrigger implements INodeType {
 				default: 'voice_evaluation',
 				required: true,
 			},
+			{
+				displayName: 'Webhook Path',
+				name: 'webhookPath',
+				type: 'string',
+				default: 'mihu-webhook',
+				description: 'Unique path for this webhook — change if using multiple Mihu triggers in one workflow',
+			},
 		],
 	};
 
 	webhookMethods = {
 		default: {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
+				const staticData = this.getWorkflowStaticData('node');
+				const webhookUrl = this.getNodeWebhookUrl('default') as string;
+				if (staticData.webhookUrl === webhookUrl) {
+					return true;
+				}
 				return false;
 			},
 
 			async create(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
 				const event = this.getNodeParameter('event') as string;
-				const credentials = await this.getCredentials('mihuApi');
+				const staticData = this.getWorkflowStaticData('node');
 
-				await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
+				await this.helpers.httpRequest({
 					method: 'POST',
-					url: `https://${credentials.accountDomain}.mihu.ai/api/v1/webhooks`,
+					url: event === 'voice_evaluation'
+						? 'https://integration.mihu.ai/webhook/d7c9d1df-40f4-4622-9c69-e3d3ceedcc1c'
+						: 'https://integration.mihu.ai/webhook/52418198-97b5-4d82-8a4c-7933a8083192',
 					body: {
 						targetUrl: webhookUrl,
 						event,
@@ -77,43 +86,44 @@ export class MihuTrigger implements INodeType {
 					json: true,
 				});
 
+				staticData.webhookUrl = webhookUrl;
 				return true;
 			},
 
 			async delete(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
-				const credentials = await this.getCredentials('mihuApi');
+				const staticData = this.getWorkflowStaticData('node');
 
 				try {
-					await this.helpers.requestWithAuthentication.call(this, 'mihuApi', {
-						method: 'DELETE',
-						url: `https://${credentials.accountDomain}.mihu.ai/api/v1/webhooks`,
-						body: {
-							targetUrl: webhookUrl,
-						},
+					await this.helpers.httpRequest({
+						method: 'POST',
+						url: 'https://integration.mihu.ai/webhook/52418198-97b5-4d82-8a4c-7933a8083192',
+						body: { targetUrl: webhookUrl },
 						json: true,
 					});
-				} catch (_) {}
+				} catch (_error) {
+					// unsubscribe failed — non-critical
+				}
 
+				delete staticData.webhookUrl;
 				return true;
 			},
 		},
 	};
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const raw = this.getBodyData() as Record<string, any>;
+		const raw = this.getBodyData() as IDataObject;
 		const event = this.getNodeParameter('event') as string;
 
-		// Filter by event type
 		if (raw.event && raw.event !== event && raw.event !== 'conversation_end_report') {
 			return { noWebhookResponse: true };
 		}
 
-		const data = raw.data || raw;
+		const data = (raw.data as IDataObject) || raw;
 
-		const result: Record<string, any> = {
-			id: data.call_id || data.session_evaluation_uuid || Date.now().toString(),
-			event: raw.event || event,
+		const result: IDataObject = {
+			id: (data.call_id as string) || (data.session_evaluation_uuid as string) || Date.now().toString(),
+			event: (raw.event as string) || event,
 			call_id: data.call_id || null,
 			session_evaluation_uuid: data.session_evaluation_uuid || null,
 			conversation_uuid: data.conversation_uuid || null,
@@ -121,17 +131,34 @@ export class MihuTrigger implements INodeType {
 			session_type: data.session_type || null,
 			duration: data.duration || null,
 			number: data.number || null,
-			phone_number: data.contact_info ? data.contact_info.phone_number : data.number,
+			phone_number: data.contact_info
+				? (data.contact_info as IDataObject).phone_number
+				: data.number,
 			conversation: data.conversation || null,
-			sentiment: data.sentiment_analysis?.sentiment?.value || null,
-			sentiment_confidence: data.sentiment_analysis?.sentiment?.confidence || null,
-			emotion: data.sentiment_analysis?.emotion?.value || null,
-			intent: data.sentiment_analysis?.intent?.value || null,
-			intent_labels: data.sentiment_analysis?.intent_labels?.value || null,
-			satisfaction: data.sentiment_analysis?.satisfaction?.value || null,
-			success: data.sentiment_analysis?.success?.value || null,
-			human_escalation: data.sentiment_analysis?.human_escalation?.value || null,
-			knowledge_gap: data.sentiment_analysis?.knowledge_gap?.value || null,
+			sentiment: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).sentiment as IDataObject)?.value
+				: null,
+			sentiment_confidence: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).sentiment as IDataObject)?.confidence
+				: null,
+			emotion: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).emotion as IDataObject)?.value
+				: null,
+			intent: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).intent as IDataObject)?.value
+				: null,
+			satisfaction: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).satisfaction as IDataObject)?.value
+				: null,
+			success: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).success as IDataObject)?.value
+				: null,
+			human_escalation: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).human_escalation as IDataObject)?.value
+				: null,
+			knowledge_gap: data.sentiment_analysis
+				? ((data.sentiment_analysis as IDataObject).knowledge_gap as IDataObject)?.value
+				: null,
 			call_end_analysis: data.call_end_analysis || null,
 			pipeline: data.pipeline || null,
 			pipeline_change: data.pipeline_change || null,
@@ -139,12 +166,11 @@ export class MihuTrigger implements INodeType {
 			timestamp: data.timestamp || null,
 		};
 
-		// Dynamic contact fields
 		if (data.fields && typeof data.fields === 'object') {
 			const excludeKeys = ['account_domain', 'Authorization', 'api_key'];
-			for (const key of Object.keys(data.fields)) {
+			for (const key of Object.keys(data.fields as IDataObject)) {
 				if (!excludeKeys.includes(key)) {
-					result[`contact_${key}`] = data.fields[key] || null;
+					result[`contact_${key}`] = (data.fields as IDataObject)[key] || null;
 				}
 			}
 		}

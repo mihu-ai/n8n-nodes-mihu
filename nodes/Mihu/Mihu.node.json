@@ -1,0 +1,24 @@
+{
+  "node": "n8n-nodes-mihu.mihu",
+  "nodeVersion": "1.0",
+  "codexVersion": "1.0",
+  "categories": [
+    "Communication",
+    "Marketing"
+  ],
+  "resources": {
+    "primaryDocumentation": [
+      {
+        "url": "https://developers.mihu.ai"
+      }
+    ]
+  },
+  "alias": [
+    "mihu",
+    "ai",
+    "voice",
+    "contact center",
+    "call",
+    "whatsapp"
+  ]
+}
