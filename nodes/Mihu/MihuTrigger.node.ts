@@ -4,6 +4,7 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
+	IDataObject,
 } from 'n8n-workflow';
 
 export class MihuTrigger implements INodeType {
@@ -14,6 +15,7 @@ export class MihuTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Triggers when a Mihu AI voice or text evaluation is completed',
+		usableAsTool: true,
 		defaults: { name: 'Mihu AI Trigger' },
 		inputs: [],
 		outputs: ['main'],
@@ -99,7 +101,7 @@ export class MihuTrigger implements INodeType {
 						body: { targetUrl: webhookUrl },
 						json: true,
 					});
-				} catch (error) {
+				} catch (_error) {
 					// unsubscribe failed — non-critical
 				}
 
@@ -110,48 +112,51 @@ export class MihuTrigger implements INodeType {
 	};
 
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const raw = this.getBodyData() as Record<string, any>;
+		const raw = this.getBodyData() as IDataObject;
 		const event = this.getNodeParameter('event') as string;
 
 		if (raw.event && raw.event !== event && raw.event !== 'conversation_end_report') {
 			return { noWebhookResponse: true };
 		}
 
-		const data = raw.data || raw;
+		const data = (raw.data ?? raw) as IDataObject;
+		const sa = (data.sentiment_analysis ?? {}) as IDataObject;
 
-		const result: Record<string, any> = {
-			id: data.call_id || data.session_evaluation_uuid || Date.now().toString(),
-			event: raw.event || event,
-			call_id: data.call_id || null,
-			session_evaluation_uuid: data.session_evaluation_uuid || null,
-			conversation_uuid: data.conversation_uuid || null,
-			agent_id: data.agent_id || null,
-			session_type: data.session_type || null,
-			duration: data.duration || null,
-			number: data.number || null,
-			phone_number: data.contact_info ? data.contact_info.phone_number : data.number,
-			conversation: data.conversation || null,
-			sentiment: data.sentiment_analysis?.sentiment?.value || null,
-			sentiment_confidence: data.sentiment_analysis?.sentiment?.confidence || null,
-			emotion: data.sentiment_analysis?.emotion?.value || null,
-			intent: data.sentiment_analysis?.intent?.value || null,
-			intent_labels: data.sentiment_analysis?.intent_labels?.value || null,
-			satisfaction: data.sentiment_analysis?.satisfaction?.value || null,
-			success: data.sentiment_analysis?.success?.value || null,
-			human_escalation: data.sentiment_analysis?.human_escalation?.value || null,
-			knowledge_gap: data.sentiment_analysis?.knowledge_gap?.value || null,
-			call_end_analysis: data.call_end_analysis || null,
-			pipeline: data.pipeline || null,
-			pipeline_change: data.pipeline_change || null,
-			appointment: data.appointment || null,
-			timestamp: data.timestamp || null,
+		const result: IDataObject = {
+			id: (data.call_id as string) ?? (data.session_evaluation_uuid as string) ?? Date.now().toString(),
+			event: (raw.event as string) ?? event,
+			call_id: data.call_id ?? null,
+			session_evaluation_uuid: data.session_evaluation_uuid ?? null,
+			conversation_uuid: data.conversation_uuid ?? null,
+			agent_id: data.agent_id ?? null,
+			session_type: data.session_type ?? null,
+			duration: data.duration ?? null,
+			number: data.number ?? null,
+			phone_number: data.contact_info
+				? ((data.contact_info as IDataObject).phone_number ?? null)
+				: (data.number ?? null),
+			conversation: data.conversation ?? null,
+			sentiment: sa.sentiment ? ((sa.sentiment as IDataObject).value ?? null) : null,
+			sentiment_confidence: sa.sentiment ? ((sa.sentiment as IDataObject).confidence ?? null) : null,
+			emotion: sa.emotion ? ((sa.emotion as IDataObject).value ?? null) : null,
+			intent: sa.intent ? ((sa.intent as IDataObject).value ?? null) : null,
+			satisfaction: sa.satisfaction ? ((sa.satisfaction as IDataObject).value ?? null) : null,
+			success: sa.success ? ((sa.success as IDataObject).value ?? null) : null,
+			human_escalation: sa.human_escalation ? ((sa.human_escalation as IDataObject).value ?? null) : null,
+			knowledge_gap: sa.knowledge_gap ? ((sa.knowledge_gap as IDataObject).value ?? null) : null,
+			call_end_analysis: data.call_end_analysis ?? null,
+			pipeline: data.pipeline ?? null,
+			pipeline_change: data.pipeline_change ?? null,
+			appointment: data.appointment ?? null,
+			timestamp: data.timestamp ?? null,
 		};
 
 		if (data.fields && typeof data.fields === 'object') {
 			const excludeKeys = ['account_domain', 'Authorization', 'api_key'];
-			for (const key of Object.keys(data.fields)) {
+			const fields = data.fields as IDataObject;
+			for (const key of Object.keys(fields)) {
 				if (!excludeKeys.includes(key)) {
-					result[`contact_${key}`] = data.fields[key] || null;
+					result[`contact_${key}`] = fields[key] ?? null;
 				}
 			}
 		}
