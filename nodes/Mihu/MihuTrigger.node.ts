@@ -14,7 +14,7 @@ export class MihuTrigger implements INodeType {
 		icon: 'file:mihu.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'AI Agents for voice, text and your entire contact center',
+		description: 'Triggers when a Mihu AI voice or text evaluation is completed',
 		usableAsTool: true,
 		defaults: { name: 'Mihu AI Trigger' },
 		inputs: [],
