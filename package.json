@@ -1,7 +1,7 @@
 {
 	"name": "n8n-nodes-mihu",
-	"version": "0.1.10",
-	"description": "n8n community node for Mihu AI - AI-powered contact center and voice agent platform",
+	"version": "0.1.13",
+	"description": "AI Agents for voice, text and your entire contact center.",
 	"license": "MIT",
 	"homepage": "https://mihu.ai",
 	"keywords": [
