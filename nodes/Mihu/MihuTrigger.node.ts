@@ -14,7 +14,7 @@ export class MihuTrigger implements INodeType {
 		icon: 'file:mihu.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Triggers when a Mihu AI voice or text evaluation is completed',
+		description: 'AI Agents for voice, text and your entire contact center',
 		usableAsTool: true,
 		defaults: { name: 'Mihu AI Trigger' },
 		inputs: [],
@@ -101,7 +101,7 @@ export class MihuTrigger implements INodeType {
 						body: { targetUrl: webhookUrl },
 						json: true,
 					});
-				} catch (_error) {
+				} catch {
 					// unsubscribe failed — non-critical
 				}
 

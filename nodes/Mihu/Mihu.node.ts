@@ -72,7 +72,7 @@ export class Mihu implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['whatsapp'] } },
 				options: [
-					{ name: 'Send Template', value: 'sendTemplate', action: 'Send a WhatsApp template message' },
+					{ name: 'Send Template', value: 'sendTemplate', action: 'Send a whats app template message' },
 				],
 				default: 'sendTemplate',
 			},
@@ -754,7 +754,7 @@ export class Mihu implements INodeType {
 						try {
 							const raw = this.getNodeParameter('recordData', i) as string;
 							recordData = typeof raw === 'string' ? JSON.parse(raw) as IDataObject : raw as IDataObject;
-						} catch (_e) {
+						} catch {
 							throw new NodeOperationError(this.getNode(), 'Record Data must be valid JSON. Example: {"Location": "New York", "Price": "1999"}', { itemIndex: i });
 						}
 						responseData = await req('POST', `${baseURL}/data/${datasetUuid}/records`, { record: recordData });
@@ -765,7 +765,7 @@ export class Mihu implements INodeType {
 						try {
 							const raw = this.getNodeParameter('recordData', i) as string;
 							recordData = typeof raw === 'string' ? JSON.parse(raw) as IDataObject : raw as IDataObject;
-						} catch (_e) {
+						} catch {
 							throw new NodeOperationError(this.getNode(), 'Record Data must be valid JSON. Example: {"Price": "2499"}', { itemIndex: i });
 						}
 						responseData = await req('PUT', `${baseURL}/data/${datasetUuid}/records/${recordId}`, { record: recordData });
