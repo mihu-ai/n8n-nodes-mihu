@@ -72,7 +72,12 @@ export class Mihu implements INodeType {
 				noDataExpression: true,
 				displayOptions: { show: { resource: ['whatsapp'] } },
 				options: [
-					{ name: 'Send Template', value: 'sendTemplate', action: 'Send a WhatsApp template message' },
+					{
+						name: 'Send WhatsApp Template',
+						value: 'sendTemplate',
+						// eslint-disable-next-line n8n-nodes-base/node-param-operation-option-action-miscased
+						action: 'Send a WhatsApp template message',
+					},
 				],
 				default: 'sendTemplate',
 			},
