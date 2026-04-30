@@ -1,5 +1,6 @@
 import {
 	IExecuteFunctions,
+	ILoadOptionsFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
@@ -30,16 +31,39 @@ export class Mihu implements INodeType {
 				type: 'options',
 				noDataExpression: true,
 				options: [
+					{ name: 'Agent', value: 'agent' },
 					{ name: 'Appointment', value: 'appointment' },
 					{ name: 'Call', value: 'call' },
 					{ name: 'Contact', value: 'contact' },
+					{ name: 'Conversation', value: 'conversation' },
 					{ name: 'Dataset', value: 'dataset' },
 					{ name: 'Listing', value: 'listing' },
+					{ name: 'SMS', value: 'sms' },
 					{ name: 'Task', value: 'task' },
 					{ name: 'WhatsApp', value: 'whatsapp' },
 				],
 				default: 'contact',
 			},
+
+			// ── AGENT OPERATIONS ─────────────────────────────────────
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: { show: { resource: ['agent'] } },
+				options: [
+					{ name: 'Add Note', value: 'addNote', action: 'Add a note to an agent' },
+					{ name: 'Add Webhook', value: 'addWebhook', action: 'Add a webhook to an agent' },
+					{ name: 'Create', value: 'create', action: 'Create an agent' },
+					{ name: 'Update', value: 'update', action: 'Update an agent' },
+					{ name: 'Update Training', value: 'updateTraining', action: 'Update training data for an agent' },
+					{ name: 'Update Webhook', value: 'updateWebhook', action: 'Update a webhook on an agent' },
+				],
+				default: 'create',
+			},
+
+			// ── CONTACT OPERATIONS ───────────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -54,6 +78,8 @@ export class Mihu implements INodeType {
 				],
 				default: 'create',
 			},
+
+			// ── CALL OPERATIONS ──────────────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -65,6 +91,36 @@ export class Mihu implements INodeType {
 				],
 				default: 'create',
 			},
+
+			// ── CONVERSATION OPERATIONS ──────────────────────────────
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: { show: { resource: ['conversation'] } },
+				options: [
+					{ name: 'Get', value: 'get', action: 'Get a conversation' },
+					{ name: 'List', value: 'list', action: 'List conversations' },
+					{ name: 'List Messages', value: 'listMessages', action: 'List messages of a conversation' },
+				],
+				default: 'list',
+			},
+
+			// ── SMS OPERATIONS ───────────────────────────────────────
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: { show: { resource: ['sms'] } },
+				options: [
+					{ name: 'Send SMS', value: 'send', action: 'Send an SMS message' },
+				],
+				default: 'send',
+			},
+
+			// ── WHATSAPP OPERATIONS ──────────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -81,6 +137,8 @@ export class Mihu implements INodeType {
 				],
 				default: 'sendTemplate',
 			},
+
+			// ── DATASET OPERATIONS ───────────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -99,6 +157,8 @@ export class Mihu implements INodeType {
 				],
 				default: 'createRecord',
 			},
+
+			// ── APPOINTMENT OPERATIONS ───────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -114,6 +174,8 @@ export class Mihu implements INodeType {
 				],
 				default: 'create',
 			},
+
+			// ── TASK OPERATIONS ──────────────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -125,6 +187,8 @@ export class Mihu implements INodeType {
 				],
 				default: 'create',
 			},
+
+			// ── LISTING OPERATIONS ───────────────────────────────────
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -139,7 +203,409 @@ export class Mihu implements INodeType {
 				default: 'create',
 			},
 
-			// ── CONTACT FIELDS ──────────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// AGENT FIELDS
+			// ═══════════════════════════════════════════════════════════
+
+			// Agent UUID dropdown (for update, addWebhook, updateWebhook, addNote, updateTraining)
+			{
+				displayName: 'Agent Name or ID',
+				name: 'agentUuidDropdown',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
+				required: true,
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['update', 'addWebhook', 'updateWebhook', 'addNote', 'updateTraining'] } },
+			},
+
+			// Basic agent fields (create + update)
+			{
+				displayName: 'Name',
+				name: 'agentName',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'Name of the AI agent',
+				displayOptions: { show: { resource: ['agent'], operation: ['create'] } },
+			},
+			{
+				displayName: 'Name',
+				name: 'agentName',
+				type: 'string',
+				default: '',
+				description: 'Name of the AI agent',
+				displayOptions: { show: { resource: ['agent'], operation: ['update'] } },
+			},
+			{
+				displayName: 'Description',
+				name: 'agentDescription',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Company Name',
+				name: 'agentCompanyName',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Role',
+				name: 'agentRole',
+				type: 'string',
+				default: '',
+				placeholder: 'Sales Representative',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Objective',
+				name: 'agentObjective',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Tone',
+				name: 'agentTone',
+				type: 'string',
+				default: '',
+				placeholder: 'Professional, Friendly',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Behavior Guidelines',
+				name: 'agentBehaviorGuidelines',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Company Service',
+				name: 'agentCompanyService',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Topic',
+				name: 'agentTopic',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Language',
+				name: 'agentLanguage',
+				type: 'string',
+				default: 'en',
+				placeholder: 'en',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Speed',
+				name: 'agentSpeed',
+				type: 'options',
+				options: [
+					{ name: 'Normal', value: 'normal' },
+					{ name: 'Fast', value: 'fast' },
+				],
+				default: 'normal',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Timezone',
+				name: 'agentTimezone',
+				type: 'string',
+				default: '',
+				placeholder: 'Europe/Istanbul',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Status',
+				name: 'agentStatus',
+				type: 'options',
+				options: [
+					{ name: 'Completed', value: 'completed' },
+					{ name: 'In Progress', value: 'in_progress' },
+					{ name: 'Paused', value: 'paused' },
+					{ name: 'Pending', value: 'pending' },
+					{ name: 'Ready', value: 'ready' },
+				],
+				default: 'pending',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Custom Prompt',
+				name: 'agentCustomPrompt',
+				type: 'string',
+				typeOptions: { rows: 4 },
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Custom LLM URL',
+				name: 'agentCustomLlmUrl',
+				type: 'string',
+				default: '',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Appointment Scheduling Enabled',
+				name: 'agentAppointmentSchedulingEnabled',
+				type: 'boolean',
+				default: false,
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+			{
+				displayName: 'Appointment Scheduling Randomly',
+				name: 'agentAppointmentSchedulingRandomly',
+				type: 'boolean',
+				default: false,
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+
+			// Guidelines
+			{
+				displayName: 'Guidelines',
+				name: 'guidelines',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true },
+				default: {},
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+				options: [
+					{
+						name: 'items',
+						displayName: 'Guideline',
+						values: [
+							{
+								displayName: 'Content',
+								name: 'content',
+								type: 'string',
+								typeOptions: { rows: 2 },
+								default: '',
+							},
+							{
+								displayName: 'Order',
+								name: 'order',
+								type: 'number',
+								default: 0,
+							},
+						],
+					},
+				],
+			},
+
+			// Notes
+			{
+				displayName: 'Notes',
+				name: 'agentNotes',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true },
+				default: {},
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+				options: [
+					{
+						name: 'items',
+						displayName: 'Note',
+						values: [
+							{
+								displayName: 'Content',
+								name: 'content',
+								type: 'string',
+								typeOptions: { rows: 2 },
+								default: '',
+							},
+							{
+								displayName: 'Order',
+								name: 'order',
+								type: 'number',
+								default: 0,
+							},
+						],
+					},
+				],
+			},
+
+			// Training
+			{
+				displayName: 'Training',
+				name: 'training',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true },
+				default: {},
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+				options: [
+					{
+						name: 'items',
+						displayName: 'Training Item',
+						values: [
+							{
+								displayName: 'Content',
+								name: 'content',
+								type: 'string',
+								typeOptions: { rows: 2 },
+								default: '',
+							},
+							{
+								displayName: 'Intent',
+								name: 'intent',
+								type: 'string',
+								default: '',
+							},
+							{
+								displayName: 'Response',
+								name: 'response',
+								type: 'string',
+								typeOptions: { rows: 2 },
+								default: '',
+							},
+						],
+					},
+				],
+			},
+
+			// Procedures (JSON)
+			{
+				displayName: 'Procedures (JSON)',
+				name: 'procedures',
+				type: 'json',
+				default: '[]',
+				description: 'Array of procedures. Example: [{"name": "Booking", "description": "Book appointment", "steps": [{"order": 1, "description": "Ask for date"}]}].',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+
+			// Settings (JSON)
+			{
+				displayName: 'Settings (JSON)',
+				name: 'agentSettings',
+				type: 'json',
+				default: '{}',
+				description: 'Voice and text settings. Example: {"voice": {}, "text": {}}.',
+				displayOptions: { show: { resource: ['agent'], operation: ['create', 'update'] } },
+			},
+
+			// Webhook fields (addWebhook + updateWebhook)
+			{
+				displayName: 'Webhook UUID',
+				name: 'webhookUuid',
+				type: 'string',
+				required: true,
+				default: '',
+				description: 'UUID of the webhook to update',
+				displayOptions: { show: { resource: ['agent'], operation: ['updateWebhook'] } },
+			},
+			{
+				displayName: 'Webhook URL',
+				name: 'webhookUrl',
+				type: 'string',
+				required: true,
+				default: '',
+				placeholder: 'https://your-n8n-instance.com/webhook/...',
+				description: 'The URL to send webhook events to',
+				displayOptions: { show: { resource: ['agent'], operation: ['addWebhook', 'updateWebhook'] } },
+			},
+			{
+				displayName: 'Events',
+				name: 'webhookEvents',
+				type: 'multiOptions',
+				required: true,
+				options: [
+					{ name: 'Conversation End Report', value: 'conversation_end_report' },
+					{ name: 'Conversation Status', value: 'conversation_status' },
+					{ name: 'Conversation Update', value: 'conversation_update' },
+					{ name: 'Intent Call', value: 'intent_call' },
+					{ name: 'Text Evaluation', value: 'text_evaluation' },
+					{ name: 'Voice Evaluation', value: 'voice_evaluation' },
+				],
+				default: ['voice_evaluation', 'text_evaluation'],
+				description: 'Events to subscribe to',
+				displayOptions: { show: { resource: ['agent'], operation: ['addWebhook', 'updateWebhook'] } },
+			},
+			{
+				displayName: 'Secret Key',
+				name: 'webhookSecretKey',
+				type: 'string',
+				typeOptions: { password: true },
+				default: '',
+				description: 'Optional secret key to sign webhook payloads',
+				displayOptions: { show: { resource: ['agent'], operation: ['addWebhook', 'updateWebhook'] } },
+			},
+			{
+				displayName: 'Active',
+				name: 'webhookIsActive',
+				type: 'boolean',
+				default: true,
+				displayOptions: { show: { resource: ['agent'], operation: ['addWebhook', 'updateWebhook'] } },
+			},
+
+			// Add Note fields
+			{
+				displayName: 'Note Content',
+				name: 'noteContent',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				required: true,
+				default: '',
+				description: 'Content of the note to add',
+				displayOptions: { show: { resource: ['agent'], operation: ['addNote'] } },
+			},
+			{
+				displayName: 'Note Order',
+				name: 'noteOrder',
+				type: 'number',
+				default: 0,
+				description: 'Display order of the note',
+				displayOptions: { show: { resource: ['agent'], operation: ['addNote'] } },
+			},
+
+			// Update Training fields
+			{
+				displayName: 'Training Items',
+				name: 'trainingItems',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true },
+				required: true,
+				default: {},
+				description: 'Training data to set for this agent (replaces existing training)',
+				displayOptions: { show: { resource: ['agent'], operation: ['updateTraining'] } },
+				options: [
+					{
+						name: 'items',
+						displayName: 'Training Item',
+						values: [
+							{
+								displayName: 'Content',
+								name: 'content',
+								type: 'string',
+								typeOptions: { rows: 2 },
+								required: true,
+								default: '',
+							},
+							{
+								displayName: 'Intent',
+								name: 'intent',
+								type: 'string',
+								default: '',
+							},
+							{
+								displayName: 'Response',
+								name: 'response',
+								type: 'string',
+								typeOptions: { rows: 2 },
+								default: '',
+							},
+						],
+					},
+				],
+			},
+
+			// ═══════════════════════════════════════════════════════════
+			// CONTACT FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
 				displayName: 'Phone Number',
 				name: 'phoneNumber',
@@ -225,11 +691,15 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['contact'], operation: ['find', 'update', 'delete'] } },
 			},
 
-			// ── CALL FIELDS ──────────────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// CALL FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
-				displayName: 'Agent ID',
+				displayName: 'Agent Name or ID',
 				name: 'agentId',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['call'], operation: ['create'] } },
@@ -272,11 +742,47 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['call'], operation: ['create'] } },
 			},
 
-			// ── WHATSAPP FIELDS ──────────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// SMS FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
-				displayName: 'Agent ID',
-				name: 'agentId',
+				displayName: 'Agent Name or ID',
+				name: 'smsAgentId',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
+				required: true,
+				default: '',
+				displayOptions: { show: { resource: ['sms'], operation: ['send'] } },
+			},
+			{
+				displayName: 'Phone Number',
+				name: 'phoneNumber',
 				type: 'string',
+				required: true,
+				default: '',
+				placeholder: '+12345678900',
+				displayOptions: { show: { resource: ['sms'], operation: ['send'] } },
+			},
+			{
+				displayName: 'Message',
+				name: 'message',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				required: true,
+				default: '',
+				displayOptions: { show: { resource: ['sms'], operation: ['send'] } },
+			},
+
+			// ═══════════════════════════════════════════════════════════
+			// WHATSAPP FIELDS
+			// ═══════════════════════════════════════════════════════════
+			{
+				displayName: 'Agent Name or ID',
+				name: 'agentId',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['whatsapp'], operation: ['sendTemplate'] } },
@@ -338,7 +844,138 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['whatsapp'], operation: ['sendTemplate'] } },
 			},
 
-			// ── DATASET FIELDS ───────────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// CONVERSATION FIELDS
+			// ═══════════════════════════════════════════════════════════
+			{
+				displayName: 'Conversation UUID',
+				name: 'conversationUuid',
+				type: 'string',
+				required: true,
+				default: '',
+				displayOptions: { show: { resource: ['conversation'], operation: ['get', 'listMessages'] } },
+			},
+			{
+				displayName: 'Phone Number Filter',
+				name: 'convPhone',
+				type: 'string',
+				default: '',
+				description: 'Filter by contact phone number (partial match)',
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Agent Name or ID',
+				name: 'convAgentUuid',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
+				default: '',
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Channel Filter',
+				name: 'convChannel',
+				type: 'options',
+				options: [
+					{ name: 'All', value: '' },
+					{ name: 'Call', value: 'call' },
+					{ name: 'SMS', value: 'sms' },
+					{ name: 'WhatsApp', value: 'whatsapp' },
+				],
+				default: '',
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Status Filter',
+				name: 'convStatus',
+				type: 'options',
+				options: [
+					{ name: 'All', value: '' },
+					{ name: 'Active', value: 'Active' },
+					{ name: 'Closed', value: 'Closed' },
+				],
+				default: '',
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Sort By',
+				name: 'convSortBy',
+				type: 'options',
+				options: [
+					{ name: 'Created At', value: 'created_at' },
+					{ name: 'Updated At', value: 'updated_at' },
+				],
+				default: 'created_at',
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Sort Direction',
+				name: 'convSortDir',
+				type: 'options',
+				options: [
+					{ name: 'Descending', value: 'desc' },
+					{ name: 'Ascending', value: 'asc' },
+				],
+				default: 'desc',
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Page',
+				name: 'convPage',
+				type: 'number',
+				default: 1,
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			{
+				displayName: 'Per Page',
+				name: 'convPerPage',
+				type: 'number',
+				default: 15,
+				displayOptions: { show: { resource: ['conversation'], operation: ['list'] } },
+			},
+			// List Messages filters
+			{
+				displayName: 'Sender Filter',
+				name: 'msgSender',
+				type: 'options',
+				options: [
+					{ name: 'All', value: '' },
+					{ name: 'AI', value: 'AI' },
+					{ name: 'Human', value: 'Human' },
+					{ name: 'Contact', value: 'Contact' },
+				],
+				default: '',
+				displayOptions: { show: { resource: ['conversation'], operation: ['listMessages'] } },
+			},
+			{
+				displayName: 'Sort Direction',
+				name: 'msgSortDir',
+				type: 'options',
+				options: [
+					{ name: 'Ascending', value: 'asc' },
+					{ name: 'Descending', value: 'desc' },
+				],
+				default: 'asc',
+				displayOptions: { show: { resource: ['conversation'], operation: ['listMessages'] } },
+			},
+			{
+				displayName: 'Page',
+				name: 'msgPage',
+				type: 'number',
+				default: 1,
+				displayOptions: { show: { resource: ['conversation'], operation: ['listMessages'] } },
+			},
+			{
+				displayName: 'Per Page',
+				name: 'msgPerPage',
+				type: 'number',
+				default: 25,
+				displayOptions: { show: { resource: ['conversation'], operation: ['listMessages'] } },
+			},
+
+			// ═══════════════════════════════════════════════════════════
+			// DATASET FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
 				displayName: 'Dataset UUID',
 				name: 'datasetUuid',
@@ -369,9 +1006,11 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['dataset'], operation: ['createRecord', 'updateRecord'] } },
 			},
 			{
-				displayName: 'Agent UUID',
+				displayName: 'Agent Name or ID',
 				name: 'agentUuid',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['dataset'], operation: ['assignToAgent'] } },
@@ -401,19 +1040,25 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['dataset'], operation: ['sendTextPrompt'] } },
 			},
 
-			// ── APPOINTMENT FIELDS ───────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// APPOINTMENT FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
-				displayName: 'Appointment UUID',
+				displayName: 'Appointment Name or ID',
 				name: 'appointmentUuid',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAppointments' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['appointment'], operation: ['update', 'updateStatus', 'delete'] } },
 			},
 			{
-				displayName: 'Schedule UUID',
+				displayName: 'Schedule Name or ID',
 				name: 'scheduleUuid',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getSchedules' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['appointment'], operation: ['create'] } },
@@ -446,7 +1091,7 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Status',
-				name: 'status',
+				name: 'appointmentStatus',
 				type: 'options',
 				options: [
 					{ name: 'Approved', value: 'approved' },
@@ -465,13 +1110,15 @@ export class Mihu implements INodeType {
 			},
 			{
 				displayName: 'Notes',
-				name: 'notes',
+				name: 'appointmentNotes',
 				type: 'string',
 				default: '',
 				displayOptions: { show: { resource: ['appointment'], operation: ['create', 'update'] } },
 			},
 
-			// ── TASK FIELDS ──────────────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// TASK FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
 				displayName: 'Title',
 				name: 'title',
@@ -501,9 +1148,11 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['task'], operation: ['create'] } },
 			},
 			{
-				displayName: 'Agent UUID',
+				displayName: 'Agent Name or ID',
 				name: 'agentUuid',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['task'], operation: ['create'] } },
@@ -524,11 +1173,15 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['task'], operation: ['create'] } },
 			},
 
-			// ── LISTING FIELDS ───────────────────────────────────────
+			// ═══════════════════════════════════════════════════════════
+			// LISTING FIELDS
+			// ═══════════════════════════════════════════════════════════
 			{
-				displayName: 'Listing UUID',
+				displayName: 'Listing Name or ID',
 				name: 'listingUuid',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getListings' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['listing'], operation: ['sendContacts', 'deleteContact'] } },
@@ -554,9 +1207,11 @@ export class Mihu implements INodeType {
 				displayOptions: { show: { resource: ['listing'], operation: ['create'] } },
 			},
 			{
-				displayName: 'Agent UUID',
+				displayName: 'Agent Name or ID',
 				name: 'agentUuid',
-				type: 'string',
+				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: { loadOptionsMethod: 'getAgents' },
 				required: true,
 				default: '',
 				displayOptions: { show: { resource: ['listing'], operation: ['create'] } },
@@ -645,6 +1300,68 @@ export class Mihu implements INodeType {
 		],
 	};
 
+	methods = {
+		loadOptions: {
+			async getAgents(this: ILoadOptionsFunctions) {
+				const credentials = await this.getCredentials('mihuApi');
+				const baseURL = `https://${credentials.accountDomain}.mihu.ai/api/v1`;
+				const response = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+					method: 'GET',
+					url: `${baseURL}/agents?per_page=100`,
+					json: true,
+				}) as IDataObject;
+				const data = response.data as IDataObject;
+				const items = (data?.items as IDataObject[]) ?? [];
+				return items.map((agent) => ({
+					name: agent.name as string,
+					value: agent.agent_uuid as string,
+				}));
+			},
+			async getSchedules(this: ILoadOptionsFunctions) {
+				const credentials = await this.getCredentials('mihuApi');
+				const baseURL = `https://${credentials.accountDomain}.mihu.ai/api/v1`;
+				const response = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+					method: 'GET',
+					url: `${baseURL}/schedules`,
+					json: true,
+				}) as IDataObject;
+				const items = (response.data as IDataObject[]) ?? [];
+				return items.map((s) => ({
+					name: (s.name as string) ?? (s.uuid as string),
+					value: s.uuid as string,
+				}));
+			},
+			async getAppointments(this: ILoadOptionsFunctions) {
+				const credentials = await this.getCredentials('mihuApi');
+				const baseURL = `https://${credentials.accountDomain}.mihu.ai/api/v1`;
+				const response = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+					method: 'GET',
+					url: `${baseURL}/appointments`,
+					json: true,
+				}) as IDataObject;
+				const items = (response.data as IDataObject[]) ?? [];
+				return items.map((a) => ({
+					name: `${a.title ?? a.uuid} (${a.start_time ?? ''})`,
+					value: a.uuid as string,
+				}));
+			},
+			async getListings(this: ILoadOptionsFunctions) {
+				const credentials = await this.getCredentials('mihuApi');
+				const baseURL = `https://${credentials.accountDomain}.mihu.ai/api/v1`;
+				const response = await this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', {
+					method: 'GET',
+					url: `${baseURL}/listings?per_page=100`,
+					json: true,
+				}) as IDataObject;
+				const items = (response.data as IDataObject[]) ?? [];
+				return items.map((l) => ({
+					name: (l.name as string) ?? (l.uuid as string),
+					value: l.uuid as string,
+				}));
+			},
+		},
+	};
+
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -663,7 +1380,142 @@ export class Mihu implements INodeType {
 					return this.helpers.httpRequestWithAuthentication.call(this, 'mihuApi', opts as Parameters<typeof this.helpers.httpRequestWithAuthentication.call>[1]) as Promise<IDataObject>;
 				};
 
-				if (resource === 'contact') {
+				// Helper to build agent body from parameters
+				const buildAgentBody = (): IDataObject => {
+					const body: IDataObject = {};
+
+					const agentName = this.getNodeParameter('agentName', i, '') as string;
+					if (agentName) body.name = agentName;
+
+					const fields: Array<[string, string]> = [
+						['agentDescription', 'description'],
+						['agentCompanyName', 'company_name'],
+						['agentRole', 'role'],
+						['agentObjective', 'objective'],
+						['agentTone', 'tone'],
+						['agentBehaviorGuidelines', 'behavior_guidelines'],
+						['agentCompanyService', 'company_service'],
+						['agentTopic', 'topic'],
+						['agentLanguage', 'language'],
+						['agentSpeed', 'speed'],
+						['agentTimezone', 'timezone'],
+						['agentStatus', 'status'],
+						['agentCustomPrompt', 'custom_prompt'],
+						['agentCustomLlmUrl', 'custom_llm_url'],
+					];
+					for (const [param, key] of fields) {
+						const v = this.getNodeParameter(param, i, '') as string;
+						if (v) body[key] = v;
+					}
+
+					body.appointment_scheduling_enabled = this.getNodeParameter('agentAppointmentSchedulingEnabled', i, false);
+					body.appointment_scheduling_randomly = this.getNodeParameter('agentAppointmentSchedulingRandomly', i, false);
+
+					// Guidelines
+					const guidelinesData = this.getNodeParameter('guidelines', i, {}) as IDataObject;
+					const guidelineItems = (guidelinesData.items as IDataObject[]) ?? [];
+					if (guidelineItems.length > 0) {
+						body.guidelines = guidelineItems.map(g => ({ content: g.content, order: g.order }));
+					}
+
+					// Notes
+					const notesData = this.getNodeParameter('agentNotes', i, {}) as IDataObject;
+					const noteItems = (notesData.items as IDataObject[]) ?? [];
+					if (noteItems.length > 0) {
+						body.notes = noteItems.map(n => ({ content: n.content, order: n.order }));
+					}
+
+					// Training
+					const trainingData = this.getNodeParameter('training', i, {}) as IDataObject;
+					const trainingItems = (trainingData.items as IDataObject[]) ?? [];
+					if (trainingItems.length > 0) {
+						body.training = trainingItems.map(t => ({
+							content: t.content,
+							intent: t.intent || undefined,
+							response: t.response || undefined,
+						}));
+					}
+
+					// Procedures (JSON)
+					const proceduresRaw = this.getNodeParameter('procedures', i, '[]') as string;
+					try {
+						const procedures = typeof proceduresRaw === 'string' ? JSON.parse(proceduresRaw) : proceduresRaw;
+						if (Array.isArray(procedures) && procedures.length > 0) body.procedures = procedures;
+					} catch {
+						throw new NodeOperationError(this.getNode(), 'Procedures must be valid JSON array.', { itemIndex: i });
+					}
+
+					// Settings (JSON)
+					const settingsRaw = this.getNodeParameter('agentSettings', i, '{}') as string;
+					try {
+						const settings = typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw;
+						if (Object.keys(settings as object).length > 0) body.settings = settings;
+					} catch {
+						throw new NodeOperationError(this.getNode(), 'Settings must be valid JSON object.', { itemIndex: i });
+					}
+
+					return body;
+				};
+
+				if (resource === 'agent') {
+					if (operation === 'create') {
+						const body = buildAgentBody();
+						if (!body.name) {
+							throw new NodeOperationError(this.getNode(), 'Agent Name is required.', { itemIndex: i });
+						}
+						const res = await req('POST', `${baseURL}/agents`, body);
+						responseData = (res.data as IDataObject) ?? res;
+					} else if (operation === 'update') {
+						const agentUuid = this.getNodeParameter('agentUuidDropdown', i) as string;
+						const body = buildAgentBody();
+						const res = await req('PATCH', `${baseURL}/agents/${agentUuid}`, body);
+						responseData = (res.data as IDataObject) ?? res;
+					} else if (operation === 'addNote') {
+						const agentUuid = this.getNodeParameter('agentUuidDropdown', i) as string;
+						const body: IDataObject = {
+							content: this.getNodeParameter('noteContent', i),
+							order: this.getNodeParameter('noteOrder', i, 0),
+						};
+						const res = await req('POST', `${baseURL}/agents/${agentUuid}/notes`, body);
+						responseData = (res.data as IDataObject) ?? res;
+					} else if (operation === 'updateTraining') {
+						const agentUuid = this.getNodeParameter('agentUuidDropdown', i) as string;
+						const trainingData = this.getNodeParameter('trainingItems', i, {}) as IDataObject;
+						const trainingItems = (trainingData.items as IDataObject[]) ?? [];
+						const body: IDataObject = {
+							training: trainingItems.map(t => ({
+								content: t.content,
+								intent: t.intent || undefined,
+								response: t.response || undefined,
+							})),
+						};
+						const res = await req('PUT', `${baseURL}/agents/${agentUuid}/training`, body);
+						responseData = (res.data as IDataObject) ?? res;
+					} else if (operation === 'addWebhook') {
+						const agentUuid = this.getNodeParameter('agentUuidDropdown', i) as string;
+						const body: IDataObject = {
+							url: this.getNodeParameter('webhookUrl', i),
+							events: this.getNodeParameter('webhookEvents', i),
+							is_active: this.getNodeParameter('webhookIsActive', i, true),
+						};
+						const secretKey = this.getNodeParameter('webhookSecretKey', i, '') as string;
+						if (secretKey) body.secret_key = secretKey;
+						const res = await req('POST', `${baseURL}/agents/${agentUuid}/webhooks`, body);
+						responseData = (res.data as IDataObject) ?? res;
+					} else if (operation === 'updateWebhook') {
+						const agentUuid = this.getNodeParameter('agentUuidDropdown', i) as string;
+						const webhookUuid = this.getNodeParameter('webhookUuid', i) as string;
+						const body: IDataObject = {
+							url: this.getNodeParameter('webhookUrl', i),
+							events: this.getNodeParameter('webhookEvents', i),
+							is_active: this.getNodeParameter('webhookIsActive', i, true),
+						};
+						const secretKey = this.getNodeParameter('webhookSecretKey', i, '') as string;
+						if (secretKey) body.secret_key = secretKey;
+						const res = await req('PATCH', `${baseURL}/agents/${agentUuid}/webhooks/${webhookUuid}`, body);
+						responseData = (res.data as IDataObject) ?? res;
+					}
+				} else if (resource === 'contact') {
 					if (operation === 'create') {
 						const body: IDataObject = {
 							phone_number: this.getNodeParameter('phoneNumber', i),
@@ -702,6 +1554,44 @@ export class Mihu implements INodeType {
 						await req('DELETE', `${baseURL}/contacts/${uuid}`);
 						responseData = { deleted: true, contact_uuid: uuid };
 					}
+				} else if (resource === 'conversation') {
+					if (operation === 'get') {
+						const uuid = this.getNodeParameter('conversationUuid', i) as string;
+						const res = await req('GET', `${baseURL}/conversations/${uuid}`);
+						responseData = (res.data as IDataObject) ?? res;
+					} else if (operation === 'list') {
+						const qs: IDataObject = {
+							page: this.getNodeParameter('convPage', i, 1),
+							per_page: this.getNodeParameter('convPerPage', i, 15),
+							sort_by: this.getNodeParameter('convSortBy', i, 'created_at'),
+							sort_dir: this.getNodeParameter('convSortDir', i, 'desc'),
+						};
+						const phone = this.getNodeParameter('convPhone', i, '') as string;
+						if (phone) qs.phone = phone;
+						const agentUuid = this.getNodeParameter('convAgentUuid', i, '') as string;
+						if (agentUuid) qs.agent_uuid = agentUuid;
+						const channel = this.getNodeParameter('convChannel', i, '') as string;
+						if (channel) qs.channel = channel;
+						const status = this.getNodeParameter('convStatus', i, '') as string;
+						if (status) qs.status = status;
+						const qsStr = Object.entries(qs).map(([k, v]) => `${k}=${v}`).join('&');
+						const res = await req('GET', `${baseURL}/conversations?${qsStr}`);
+						const d = res.data as IDataObject;
+						responseData = { conversations: (d?.data as IDataObject[]) ?? [], total: d?.total, current_page: d?.current_page };
+					} else if (operation === 'listMessages') {
+						const uuid = this.getNodeParameter('conversationUuid', i) as string;
+						const qs: IDataObject = {
+							page: this.getNodeParameter('msgPage', i, 1),
+							per_page: this.getNodeParameter('msgPerPage', i, 25),
+							sort_dir: this.getNodeParameter('msgSortDir', i, 'asc'),
+						};
+						const sender = this.getNodeParameter('msgSender', i, '') as string;
+						if (sender) qs.sender = sender;
+						const qsStr = Object.entries(qs).map(([k, v]) => `${k}=${v}`).join('&');
+						const res = await req('GET', `${baseURL}/conversations/${uuid}/messages?${qsStr}`);
+						const d = res.data as IDataObject;
+						responseData = { messages: (d?.data as IDataObject[]) ?? [], total: d?.total, current_page: d?.current_page };
+					}
 				} else if (resource === 'call') {
 					if (operation === 'create') {
 						const participant: IDataObject = { number: this.getNodeParameter('phoneNumber', i) };
@@ -721,6 +1611,15 @@ export class Mihu implements INodeType {
 						const startMessage = this.getNodeParameter('startMessage', i, '') as string;
 						if (startMessage) body.message = { start: startMessage };
 						responseData = await req('POST', `${baseURL}/call`, body);
+					}
+				} else if (resource === 'sms') {
+					if (operation === 'send') {
+						const body: IDataObject = {
+							agentId: this.getNodeParameter('smsAgentId', i),
+							phoneNumber: this.getNodeParameter('phoneNumber', i),
+							message: this.getNodeParameter('message', i),
+						};
+						responseData = await req('POST', `${baseURL}/sms/send`, body);
 					}
 				} else if (resource === 'whatsapp') {
 					if (operation === 'sendTemplate') {
@@ -808,10 +1707,10 @@ export class Mihu implements INodeType {
 						};
 						const contactUuid = this.getNodeParameter('contactUuid', i, '') as string;
 						if (contactUuid) body.contact_uuid = contactUuid;
-						const status = this.getNodeParameter('status', i, '') as string;
-						if (status) body.status = status;
-						const notes = this.getNodeParameter('notes', i, '') as string;
-						if (notes) body.notes = notes;
+						const apptStatus = this.getNodeParameter('appointmentStatus', i, '') as string;
+						if (apptStatus) body.status = apptStatus;
+						const apptNotes = this.getNodeParameter('appointmentNotes', i, '') as string;
+						if (apptNotes) body.notes = apptNotes;
 						const res = await req('POST', `${baseURL}/appointments`, body);
 						responseData = (res.data as IDataObject) ?? res;
 					} else if (operation === 'update') {
@@ -819,7 +1718,7 @@ export class Mihu implements INodeType {
 						const body: IDataObject = {};
 						const fields: Array<[string, string]> = [
 							['title', 'title'], ['startTime', 'start_time'],
-							['endTime', 'end_time'], ['status', 'status'], ['notes', 'notes'],
+							['endTime', 'end_time'], ['appointmentStatus', 'status'], ['appointmentNotes', 'notes'],
 						];
 						for (const [param, key] of fields) {
 							const v = this.getNodeParameter(param, i, '');
@@ -829,8 +1728,8 @@ export class Mihu implements INodeType {
 						responseData = (res.data as IDataObject) ?? res;
 					} else if (operation === 'updateStatus') {
 						const uuid = this.getNodeParameter('appointmentUuid', i) as string;
-						const status = this.getNodeParameter('status', i) as string;
-						const res = await req('POST', `${baseURL}/appointments/${uuid}/status`, { status });
+						const apptStatus = this.getNodeParameter('appointmentStatus', i) as string;
+						const res = await req('POST', `${baseURL}/appointments/${uuid}/status`, { status: apptStatus });
 						responseData = (res.data as IDataObject) ?? res;
 					} else if (operation === 'delete') {
 						const uuid = this.getNodeParameter('appointmentUuid', i) as string;
@@ -880,12 +1779,12 @@ export class Mihu implements INodeType {
 						const contact: IDataObject = {
 							phone_number: this.getNodeParameter('contactPhone', i),
 						};
-						const name = this.getNodeParameter('contactName', i, '') as string;
-						if (name) contact.name = name;
-						const surname = this.getNodeParameter('contactSurname', i, '') as string;
-						if (surname) contact.surname = surname;
-						const email = this.getNodeParameter('contactEmail', i, '') as string;
-						if (email) contact.email = email;
+						const cname = this.getNodeParameter('contactName', i, '') as string;
+						if (cname) contact.name = cname;
+						const csurname = this.getNodeParameter('contactSurname', i, '') as string;
+						if (csurname) contact.surname = csurname;
+						const cemail = this.getNodeParameter('contactEmail', i, '') as string;
+						if (cemail) contact.email = cemail;
 						responseData = await req('POST', `${baseURL}/listings/${listingUuid}/contacts`, { contacts: [contact] });
 					} else if (operation === 'deleteContact') {
 						const listingUuid = this.getNodeParameter('listingUuid', i) as string;
